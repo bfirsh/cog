@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
-	"github.com/hashicorp/waypoint-plugin-sdk/internal/pkg/spinner"
 	"github.com/morikuni/aec"
 )
 
@@ -80,7 +80,7 @@ func init() {
 func newSpinnerStatus(ctx context.Context) *spinnerStatus {
 	return &spinnerStatus{
 		spinner: spinner.New(
-			ctx,
+			// FIXME: waypoint uses a fork of spinner with context
 			spinner.CharSets[11],
 			time.Second/6,
 			spinner.WithColor("bold"),
