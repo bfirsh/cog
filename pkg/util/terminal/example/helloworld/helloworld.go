@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/replicate/cog/pkg/util/terminal"
@@ -10,13 +9,9 @@ import (
 
 func main() {
 	ui := terminal.ConsoleUI(context.Background())
+	defer ui.Close()
 	status := ui.Status()
 	status.Update("reticulating splines...")
 	time.Sleep(2 * time.Second)
 	status.Step(terminal.StatusOK, "hello world")
-
-	if closer, ok := ui.(io.Closer); ok && closer != nil {
-		closer.Close()
-	}
-
 }

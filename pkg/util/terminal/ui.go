@@ -62,6 +62,8 @@ type UI interface {
 	// body. No other output mechanism (Output, Input, Status, etc.) may be
 	// called until the StepGroup is complete.
 	StepGroup() StepGroup
+
+	Close() error
 }
 
 // StepGroup is a group of steps (that may be concurrent).

@@ -153,6 +153,11 @@ func (ui *nonInteractiveUI) Table(tbl *Table, opts ...Option) {
 	table.Render()
 }
 
+// Close implements UI
+func (ui *nonInteractiveUI) Close() error {
+	return nil
+}
+
 type nonInteractiveStatus struct {
 	mu *sync.Mutex
 }

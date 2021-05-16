@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/replicate/cog/pkg/util/terminal"
@@ -11,6 +10,7 @@ import (
 
 func main() {
 	ui := terminal.ConsoleUI(context.Background())
+	defer ui.Close()
 	sg := ui.StepGroup()
 	defer sg.Wait()
 
@@ -37,9 +37,4 @@ func main() {
 	time.Sleep(1 * time.Second)
 	s1.Done()
 	// or s1.Abort() on error and it'll print the whole scrollback
-
-	if closer, ok := ui.(io.Closer); ok && closer != nil {
-		closer.Close()
-	}
-
 }
