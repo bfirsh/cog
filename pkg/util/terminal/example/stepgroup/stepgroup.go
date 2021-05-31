@@ -23,7 +23,7 @@ func main() {
 	i := 0
 	go func() {
 		for {
-			fmt.Fprintf(s1.TermOutput(), fmt.Sprintf("reticulating spline %d\n", i))
+			fmt.Fprintf(s1.TermOutput(), "reticulating spline %d\n", i)
 			i++
 			time.Sleep(5 * time.Millisecond)
 		}

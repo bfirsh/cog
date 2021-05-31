@@ -7,7 +7,7 @@ import (
 
 	"github.com/containerd/console"
 	"github.com/mattn/go-isatty"
-	sshterm "golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // Returns a UI which will write to the current processes
@@ -17,7 +17,7 @@ func ConsoleUI(ctx context.Context) UI {
 	// one or the other and we really only want the glint-based UI in
 	// truly interactive environments.
 	interactive := (isatty.IsTerminal(os.Stdout.Fd()) &&
-		sshterm.IsTerminal(int(os.Stdout.Fd())) &&
+		term.IsTerminal(int(os.Stdout.Fd())) &&
 		strings.ToLower(os.Getenv("TERM")) != "dumb")
 	if interactive {
 		interactive = false
