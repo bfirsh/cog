@@ -13,12 +13,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/replicate/cog/pkg/client"
+	"github.com/replicate/cog/pkg/docker"
 	"github.com/replicate/cog/pkg/logger"
 	"github.com/replicate/cog/pkg/model"
 	"github.com/replicate/cog/pkg/serving"
 	"github.com/replicate/cog/pkg/util/console"
 	"github.com/replicate/cog/pkg/util/mime"
 	"github.com/replicate/cog/pkg/util/slices"
+	"github.com/replicate/cog/pkg/util/terminal"
 )
 
 var (
@@ -29,10 +31,15 @@ var (
 
 func newPredictCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:        "predict <id>",
-		Short:      "Run a single prediction against a version of a model",
+		Use:   "predict [version id]",
+		Short: "Run a prediction on a version",
+		Long: `Run a prediction on a version.
+		
+If 'version id' is passed, it will run the prediction on that version of the 
+model. Otherwise, it will build the model in the current directory and run
+the prediction on that.`,
 		RunE:       cmdPredict,
-		Args:       cobra.MinimumNArgs(1),
+		Args:       cobra.MaximumNArgs(1),
 		SuggestFor: []string{"infer"},
 	}
 	addModelFlag(cmd)
@@ -48,23 +55,58 @@ func cmdPredict(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--arch must be either 'cpu' or 'gpu'")
 	}
 
-	mod, err := getModel()
-	if err != nil {
-		return err
-	}
+	useGPU := predictArch == "gpu"
+	dockerImageName := ""
 
-	id := args[0]
+	if len(args) == 0 {
+		// Local
+		ui := terminal.ConsoleUI(context.Background())
+		defer ui.Close()
 
-	client := client.NewClient()
-	fmt.Println("Loading package", id)
-	version, err := client.GetVersion(mod, id)
-	if err != nil {
-		return err
-	}
-	// TODO(bfirsh): differentiate between failed builds and in-progress builds, and probably block here if there is an in-progress build
-	image := model.ImageForArch(version.Images, predictArch)
-	if image == nil {
-		return fmt.Errorf("No %s image has been built for %s:%s", predictArch, mod.String(), id)
+		config, projectDir, err := getConfig()
+		if err != nil {
+			return err
+		}
+		ui.Output("Building Docker image from environment in cog.yaml...")
+		logWriter := logger.NewTerminalLogger(ui)
+		generator := docker.NewDockerfileGenerator(config, predictArch, projectDir)
+		dockerfileContents, err := generator.Generate()
+		if err != nil {
+			return fmt.Errorf("Failed to generate Dockerfile for %s: %w", predictArch, err)
+		}
+		defer func() {
+			if err := generator.Cleanup(); err != nil {
+				ui.Output(fmt.Sprintf("Error cleaning up Dockerfile generator: %s", err))
+			}
+		}()
+		dockerImageBuilder := docker.NewLocalImageBuilder("")
+		dockerImageName, err = dockerImageBuilder.Build(context.Background(), projectDir, dockerfileContents, "", useGPU, logWriter)
+		if err != nil {
+			return fmt.Errorf("Failed to build Docker image: %w", err)
+		}
+
+		logWriter.Done()
+
+	} else {
+		// Remote
+
+		id := args[0]
+		mod, err := getModel()
+		if err != nil {
+			return err
+		}
+		client := client.NewClient()
+		fmt.Println("Loading package", id)
+		version, err := client.GetVersion(mod, id)
+		if err != nil {
+			return err
+		}
+		image := model.ImageForArch(version.Images, predictArch)
+		// TODO(bfirsh): differentiate between failed builds and in-progress builds, and probably block here if there is an in-progress build
+		if image == nil {
+			return fmt.Errorf("No %s image has been built for %s:%s", predictArch, mod.String(), id)
+		}
+		dockerImageName = image.URI
 	}
 
 	servingPlatform, err := serving.NewLocalDockerPlatform()
@@ -72,8 +114,7 @@ func cmdPredict(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	logWriter := logger.NewConsoleLogger()
-	useGPU := predictArch == "gpu"
-	deployment, err := servingPlatform.Deploy(context.Background(), image.URI, useGPU, logWriter)
+	deployment, err := servingPlatform.Deploy(context.Background(), dockerImageName, useGPU, logWriter)
 	if err != nil {
 		return err
 	}

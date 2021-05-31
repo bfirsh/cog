@@ -106,6 +106,15 @@ func (p *LocalDockerPlatform) Deploy(ctx context.Context, imageTag string, useGP
 			DeviceRequests: deviceRequests,
 		},
 	}
+	// TODO(bfirsh): support mounting local code
+	// if mountCodePath != "" {
+	// 	hostConfig.Mounts = []mount.Mount{{
+	// 		Type:     mount.TypeBind,
+	// 		Source:   mountCodePath,
+	// 		Target:   "/code",
+	// 		ReadOnly: false,
+	// 	}}
+	// }
 	resp, err := p.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create Docker container for image %s: %w", imageTag, err)
