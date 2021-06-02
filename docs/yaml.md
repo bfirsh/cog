@@ -66,3 +66,7 @@ environment:
 ### `architectures`
 
 List of architectures (`cpu` or `gpu`) to build Docker images for. Useful if the model only works on either CPU or GPU. Defaults to [`cpu`, `gpu`].
+
+## `workdir`
+
+Working directory that contains `model`. The `model` script will be called from this directory. Defaults to the directory that contains `cog.yaml`.
