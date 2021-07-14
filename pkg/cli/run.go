@@ -1,17 +1,13 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
+	"path"
 	"strings"
 
-	"github.com/mattn/go-isatty"
 	"github.com/replicate/cog/pkg/config"
 	"github.com/replicate/cog/pkg/docker"
-	"github.com/replicate/cog/pkg/logger"
-	"github.com/replicate/cog/pkg/util/terminal"
 	"github.com/spf13/cobra"
 )
 
@@ -34,63 +30,33 @@ func run(cmd *cobra.Command, args []string) error {
 	// TODO: support multiple run architectures, or automatically select arch based on host
 	arch := "cpu"
 
-	ui := terminal.ConsoleUI(context.Background())
-	defer ui.Close()
-
-	config, projectDir, err := config.GetConfig(projectDirFlag)
+	cfg, projectDir, err := config.GetConfig(projectDirFlag)
 	if err != nil {
 		return err
 	}
+
 	// FIXME: refactor to share with predict
-	ui.Output("Building Docker image from environment in cog.yaml...")
-	logWriter := logger.NewTerminalLogger(ui)
-	generator := docker.NewDockerfileGenerator(config, arch, projectDir)
-	defer func() {
-		if err := generator.Cleanup(); err != nil {
-			ui.Output(fmt.Sprintf("Error cleaning up Dockerfile generator: %s", err))
-		}
-	}()
+
+	// TODO: ditch tag for run so that prune works?
+	image := "cog-" + path.Base(projectDir) + "-base:latest"
+
+	fmt.Fprintf(os.Stderr, "Building Docker image from environment in cog.yaml...\n\n")
+
+	generator := docker.NewDockerfileGenerator(cfg, arch, projectDir)
+	defer generator.Cleanup()
+
 	dockerfileContents, err := generator.GenerateBase()
 	if err != nil {
 		return fmt.Errorf("Failed to generate Dockerfile for %s: %w", arch, err)
 	}
-	dockerImageBuilder := docker.NewLocalImageBuilder("")
-	buildUseGPU := config.Environment.BuildRequiresGPU && arch == "gpu"
-	tag, err := dockerImageBuilder.Build(context.Background(), projectDir, dockerfileContents, "", buildUseGPU, logWriter)
-	if err != nil {
+
+	if err := docker.Build(projectDir, dockerfileContents, image); err != nil {
 		return fmt.Errorf("Failed to build Docker image: %w", err)
 	}
 
-	logWriter.Done()
+	fmt.Fprintf(os.Stderr, "\n")
+	fmt.Fprintf(os.Stderr, "Running '%s' in Docker with the current directory mounted as a volume...\n", strings.Join(args, " "))
+	return docker.Run(projectDir, image, args)
 
-	// TODO(bfirsh): ports
-	ports := []string{}
-
-	ui.Output(fmt.Sprintf("Running '%s' in Docker with the current directory mounted as a volume...", strings.Join(args, " ")))
-	ui.HorizontalRule()
-
-	dockerArgs := []string{
-		"run",
-		"--interactive",
-		"--rm",
-		"--shm-size", "8G", // https://github.com/pytorch/pytorch/issues/2244
-		// TODO: escape
-		"--volume", projectDir + ":/code",
-	}
-	for _, port := range ports {
-		dockerArgs = append(dockerArgs, "-p", port+":"+port)
-	}
-	if isatty.IsTerminal(os.Stdin.Fd()) {
-		dockerArgs = append(dockerArgs, "--tty")
-	}
-	dockerArgs = append(dockerArgs, tag)
-	dockerArgs = append(dockerArgs, args...)
-
-	dockerCmd := exec.Command("docker", dockerArgs...)
-	dockerCmd.Env = os.Environ()
-	dockerCmd.Stdout = os.Stdout
-	dockerCmd.Stderr = os.Stderr
-	dockerCmd.Stdin = os.Stdin
-
-	return dockerCmd.Run()
+	// TODO: delete image
 }

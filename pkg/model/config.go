@@ -24,6 +24,7 @@ type Environment struct {
 	SystemPackages       []string `json:"system_packages" yaml:"system_packages"`
 	PreInstall           []string `json:"pre_install" yaml:"pre_install"`
 	Architectures        []string `json:"architectures" yaml:"architectures"`
+	GPU                  bool     `json:"gpu" yaml:"gpu"`
 	CUDA                 string   `json:"cuda" yaml:"cuda"`
 	CuDNN                string   `json:"cudnn" yaml:"cudnn"`
 	BuildRequiresGPU     bool     `json:"build_requires_gpu" yaml:"build_requires_gpu"`
@@ -36,8 +37,8 @@ type Example struct {
 
 type Config struct {
 	Environment *Environment `json:"environment" yaml:"environment"`
-	Model       string       `json:"model" yaml:"model"`
 	Examples    []*Example   `json:"examples" yaml:"examples"`
+	Model       string       `json:"model" yaml:"model"`
 	Workdir     string       `json:"workdir" yaml:"workdir"`
 }
 
@@ -138,7 +139,7 @@ func (c *Config) ValidateAndCompleteConfig() error {
 		return err
 	}
 
-	if c.HasGPU() {
+	if c.Environment.GPU {
 		if err := c.validateAndCompleteCUDA(); err != nil {
 			return err
 		}

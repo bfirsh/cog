@@ -91,6 +91,7 @@ func (p *LocalDockerPlatform) Deploy(ctx context.Context, imageTag string, useGP
 			Count:        -1, // -1 == all
 			Capabilities: [][]string{{"gpu"}},
 		}}
+		// FIXME(bfirsh): should this be included in the image?
 		env = []string{"LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/local/nvidia/bin"}
 	}
 	containerConfig := &container.Config{

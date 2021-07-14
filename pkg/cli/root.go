@@ -20,10 +20,15 @@ var modelRegex = regexp.MustCompile("^(?:(https?://[^/]*)/)?(?:([-_a-zA-Z0-9]+)/
 
 func NewRootCommand() (*cobra.Command, error) {
 	rootCmd := cobra.Command{
-		Use:     "cog",
-		Short:   "",
+		Use:   "cog",
+		Short: "Cog: Containers for machine learning",
+		Long: `Containers for machine learning.
+		
+To get started, you first need to create a 'cog.yaml' file.`,
+		Example: `   To run a command inside a Docker environment defined in Cog:
+      $ cog run echo hello world`,
 		Version: fmt.Sprintf("%s (built %s)", global.Version, global.BuildTime),
-		// This stops errors being printed because we print them in cmd/keepsake/main.go
+		// This stops errors being printed because we print them in cmd/cog/cog.go
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if global.Verbose {
 				console.SetLevel(console.DebugLevel)
@@ -36,26 +41,19 @@ func NewRootCommand() (*cobra.Command, error) {
 
 	rootCmd.AddCommand(
 		newBuildCommand(),
-		newPushCommand(),
-		newTestCommand(),
 		newDebugCommand(),
+		newPushCommand(),
 		newPredictCommand(),
 		newRunCommand(),
-		newServerCommand(),
-		newShowCommand(),
-		newModelCommand(),
-		newDownloadCommand(),
-		newListCommand(),
-		newDeleteCommand(),
-		newLoginCommand(),
 	)
 
 	return &rootCmd, nil
 }
 
 func setPersistentFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolVarP(&global.Verbose, "verbose", "v", false, "Verbose output")
+	cmd.PersistentFlags().BoolVar(&global.Verbose, "debug", false, "Show debugging output")
 	cmd.PersistentFlags().BoolVar(&global.ProfilingEnabled, "profile", false, "Enable profiling")
+	cmd.PersistentFlags().Bool("version", false, "Show version of Cog")
 	_ = cmd.PersistentFlags().MarkHidden("profile")
 }
 

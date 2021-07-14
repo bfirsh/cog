@@ -1,94 +1,55 @@
 package cli
 
 import (
-	"context"
 	"fmt"
+	"os"
+	"path"
 
+	"github.com/replicate/cog/pkg/config"
+	"github.com/replicate/cog/pkg/docker"
 	"github.com/spf13/cobra"
-
-	"github.com/replicate/cog/pkg/client"
-	"github.com/replicate/cog/pkg/global"
-	"github.com/replicate/cog/pkg/logger"
-	"github.com/replicate/cog/pkg/util/terminal"
 )
 
-var buildNoFollow bool
+var buildTag string
 
 func newBuildCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
-		Short: "Manage image builds",
+		Short: "Build an image from cog.yaml",
 		Args:  cobra.NoArgs,
+		RunE:  buildCommand,
 	}
-
-	cmd.AddCommand(newBuildLogCommand())
-
+	cmd.Flags().StringVarP(&buildTag, "tag", "t", "", "A name for the built image in the form 'repository:tag'")
 	return cmd
 }
 
-func newBuildLogCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "log <BUILD_ID>",
-		Short: "Display build logs",
-		RunE:  showBuildLogs,
-		Args:  cobra.ExactArgs(1),
-	}
+func buildCommand(cmd *cobra.Command, args []string) error {
 
-	addModelFlag(cmd)
-
-	cmd.Flags().BoolVarP(&buildNoFollow, "no-follow", "", false, "Exit immediately instead of waiting until output finishes")
-	// TODO(andreas): tail
-
-	return cmd
-}
-
-func showBuildLogs(cmd *cobra.Command, args []string) error {
-	buildID := args[0]
-
-	model, err := getModel()
+	cfg, projectDir, err := config.GetConfig(projectDirFlag)
 	if err != nil {
 		return err
 	}
 
-	c := client.NewClient()
+	if buildTag == "" {
+		buildTag = "cog-" + path.Base(projectDir) + ":latest"
+	}
 
-	ui := terminal.ConsoleUI(context.Background())
-	defer ui.Close()
+	fmt.Fprintf(os.Stderr, "Building Docker image from environment in cog.yaml as %s...\n\n", buildTag)
 
-	logChan, err := c.GetBuildLogs(model, buildID, !buildNoFollow)
+	arch := "cpu"
+	generator := docker.NewDockerfileGenerator(cfg, arch, projectDir)
+	defer generator.Cleanup()
+
+	dockerfileContents, err := generator.Generate()
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to generate Dockerfile for %s: %w", arch, err)
 	}
 
-	if global.Verbose {
-		for entry := range logChan {
-			fmt.Println(entry.Line)
-		}
-	} else {
-		logWriter := logger.NewTerminalLogger(ui)
-		pipeLogChanToLogger(logChan, logWriter)
+	if err := docker.Build(projectDir, dockerfileContents, buildTag); err != nil {
+		return fmt.Errorf("Failed to build Docker image: %w", err)
 	}
+
+	fmt.Fprintf(os.Stderr, "\nImage built as %s\n", buildTag)
 
 	return nil
-}
-
-// FIXME(bfirsh):
-func pipeLogChanToLogger(logChan chan *client.LogEntry, logWriter logger.Logger) {
-	for entry := range logChan {
-		switch entry.Level {
-		case logger.LevelFatal:
-			logWriter.WriteError(fmt.Errorf(entry.Line))
-		case logger.LevelError:
-			logWriter.WriteError(fmt.Errorf(entry.Line))
-		case logger.LevelWarn:
-			logWriter.WriteError(fmt.Errorf(entry.Line))
-		case logger.LevelStatus:
-			logWriter.Info(entry.Line)
-		case logger.LevelInfo:
-			logWriter.Info(entry.Line)
-		case logger.LevelDebug:
-			logWriter.Debug(entry.Line)
-		}
-	}
-
 }
