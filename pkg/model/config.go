@@ -38,6 +38,7 @@ type Example struct {
 type Config struct {
 	Environment *Environment `json:"environment" yaml:"environment"`
 	Examples    []*Example   `json:"examples" yaml:"examples"`
+	Image       string       `json:"image" yaml:"image"`
 	Model       string       `json:"model" yaml:"model"`
 	Workdir     string       `json:"workdir" yaml:"workdir"`
 }

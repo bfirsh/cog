@@ -24,8 +24,10 @@ func NewRootCommand() (*cobra.Command, error) {
 		Short: "Cog: Containers for machine learning",
 		Long: `Containers for machine learning.
 		
-To get started, you first need to create a 'cog.yaml' file.`,
-		Example: `   To run a command inside a Docker environment defined in Cog:
+To get started, you first need to create a 'cog.yaml' file. Check out the docs to learn how to do that:
+
+...`,
+		Example: `   To run a command inside a Docker environment defined with Cog:
       $ cog run echo hello world`,
 		Version: fmt.Sprintf("%s (built %s)", global.Version, global.BuildTime),
 		// This stops errors being printed because we print them in cmd/cog/cog.go

@@ -94,20 +94,22 @@ func (g *DockerfileGenerator) GenerateBase() (string, error) {
 }
 
 func (g *DockerfileGenerator) Generate() (string, error) {
-	if g.Config.Model == "" {
-		return "", fmt.Errorf("'model' option is not set in cog.yaml")
-	}
-
 	base, err := g.GenerateBase()
 	if err != nil {
 		return "", err
 	}
-	return strings.Join(filterEmpty([]string{
-		base,
-		g.installHelperScripts(),
-		g.copyCode(),
-		g.command(),
-	}), "\n"), nil
+
+	lines := []string{base}
+
+	if g.Config.Model != "" {
+		lines = append(lines,
+			g.installHelperScripts(),
+			g.command(),
+		)
+	}
+	lines = append(lines, g.copyCode())
+
+	return strings.Join(filterEmpty(lines), "\n"), nil
 }
 
 func (g *DockerfileGenerator) Cleanup() error {

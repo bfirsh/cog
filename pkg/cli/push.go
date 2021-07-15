@@ -12,12 +12,12 @@ import (
 
 func newPushCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "push IMAGE[:TAG]",
+		Use: "push [IMAGE[:TAG]]",
 
 		Short:   "Push model in current directory to a Docker registry",
 		Example: `cog push registry.hooli.corp/hotdog-detector`,
 		RunE:    push,
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.MaximumNArgs(1),
 	}
 	addProjectDirFlag(cmd)
 
@@ -25,14 +25,21 @@ func newPushCommand() *cobra.Command {
 }
 
 func push(cmd *cobra.Command, args []string) error {
-	image := args[0]
-
 	cfg, projectDir, err := config.GetConfig(projectDirFlag)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Building Docker image from environment in cog.yaml as %s...\n\n", buildTag)
+	image := cfg.Image
+	if len(args) > 0 {
+		image = args[0]
+	}
+
+	if image == "" {
+		return fmt.Errorf("To push images, you must either set the 'image' option in cog.yaml or pass an image name as an argument. For example, 'cog push registry.hooli.corp/hotdog-detector'")
+	}
+
+	fmt.Fprintf(os.Stderr, "Building Docker image from environment in cog.yaml as %s...\n\n", image)
 
 	arch := "cpu"
 	generator := docker.NewDockerfileGenerator(cfg, arch, projectDir)

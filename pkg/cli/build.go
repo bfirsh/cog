@@ -10,8 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var buildTag string
-
 func newBuildCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
@@ -19,7 +17,6 @@ func newBuildCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE:  buildCommand,
 	}
-	cmd.Flags().StringVarP(&buildTag, "tag", "t", "", "A name for the built image in the form 'repository:tag'")
 	return cmd
 }
 
@@ -30,11 +27,12 @@ func buildCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if buildTag == "" {
-		buildTag = "cog-" + path.Base(projectDir) + ":latest"
+	image := cfg.Image
+	if image == "" {
+		image = "cog-" + path.Base(projectDir) + ":latest"
 	}
 
-	fmt.Fprintf(os.Stderr, "Building Docker image from environment in cog.yaml as %s...\n\n", buildTag)
+	fmt.Fprintf(os.Stderr, "Building Docker image from environment in cog.yaml as %s...\n\n", image)
 
 	arch := "cpu"
 	generator := docker.NewDockerfileGenerator(cfg, arch, projectDir)
@@ -45,11 +43,11 @@ func buildCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Failed to generate Dockerfile for %s: %w", arch, err)
 	}
 
-	if err := docker.Build(projectDir, dockerfileContents, buildTag); err != nil {
+	if err := docker.Build(projectDir, dockerfileContents, image); err != nil {
 		return fmt.Errorf("Failed to build Docker image: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "\nImage built as %s\n", buildTag)
+	fmt.Fprintf(os.Stderr, "\nImage built as %s\n", image)
 
 	return nil
 }
