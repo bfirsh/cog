@@ -52,15 +52,17 @@ $ cog run jupyter notebook
 First, you define how predictions are run on your model:
 
 ```python
-import cog
+from cog import Predictor, Input
+from pathlib import Path
 import torch
 
 class ColorizationPredictor(cog.Predictor):
     def setup(self):
         self.model = torch.load("./weights.pth")
 
-    @cog.input("input", type=cog.Path, help="Grayscale input image")
-    def predict(self, input):
+    def predict(self,
+        image: Path = Input(description="Image to colorize")
+    ) -> Path:
         # ... pre-processing ...
         output = self.model(processed_input)
         # ... post-processing ...
@@ -70,7 +72,7 @@ class ColorizationPredictor(cog.Predictor):
 Now, you can run predictions on this model:
 
 ```
-$ cog predict -i @input.jpg
+$ cog predict -i image=@input.jpg
 --> Building Docker image...
 --> Running Prediction...
 --> Output written to output.jpg
@@ -118,5 +120,5 @@ Run this in a terminal:
 - [Prediction interface reference](docs/python.md) to learn how the `cog.Predictor` interface works
 
 ## Need help?
- 
+
 [Join us in #cog on Discord.](https://discord.gg/QmzJApGjyE)
